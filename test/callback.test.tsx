@@ -3,6 +3,7 @@ import { ReactNode, Suspense } from 'react';
 import { describe, expect, it } from 'vitest';
 import {
   atom,
+  atomFamily,
   DefaultValue,
   RecoilRoot,
   selector,
@@ -422,5 +423,56 @@ describe('transact_UNSTABLE', () => {
     act(() => result.current.resetBySet());
 
     expect(result.current.a).toBe(1);
+  });
+});
+
+describe('Suspense で解決済みになった非同期の値', () => {
+  const renderResolved = async (target: Parameters<typeof useRecoilValue>[0]) => {
+    let read: () => { state: string; contents: unknown } = () => ({ state: '', contents: null });
+    const Viewer = () => {
+      const value = useRecoilValue(target);
+      read = useRecoilCallback(({ snapshot }) => () => {
+        const loadable = snapshot.getLoadable(target);
+        return { state: loadable.state, contents: loadable.contents };
+      });
+      return <span data-testid="resolved">{String(value)}</span>;
+    };
+    render(
+      <RecoilRoot>
+        <Suspense fallback={<span>loading</span>}>
+          <Viewer />
+        </Suspense>
+      </RecoilRoot>,
+    );
+    await screen.findByTestId('resolved');
+    return () => read();
+  };
+
+  it('default が Promise の atom は、画面に表示された後の getLoadable で hasValue になる', async () => {
+    const pageInfoFamily = atomFamily<number, [documentId: string]>({
+      key: uniqueKey('pageInfo'),
+      default: async ([documentId]) => {
+        await delay(10);
+        return documentId.length;
+      },
+    });
+
+    const read = await renderResolved(pageInfoFamily(['doc']));
+
+    expect(read()).toEqual({ state: 'hasValue', contents: 3 });
+  });
+
+  it('非同期 selector は、画面に表示された後の getLoadable で hasValue になる', async () => {
+    const asyncSelector = selector<string>({
+      key: uniqueKey('async'),
+      get: async () => {
+        await delay(10);
+        return 'done';
+      },
+    });
+
+    const read = await renderResolved(asyncSelector);
+
+    expect(read()).toEqual({ state: 'hasValue', contents: 'done' });
   });
 });
