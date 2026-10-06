@@ -6,6 +6,7 @@ import {
   isResetSignal,
   registerRecoilValue,
   resolveSetArg,
+  trackIfPromise,
 } from './internal';
 import type { RecoilSetArg, RecoilState, RecoilValue } from './types';
 
@@ -39,7 +40,7 @@ export function atom<T>(options: AtomOptions<T>): RecoilState<T> {
   const recoilAtom = jotaiAtom(
     (get) => {
       const overwritten = get(overwrittenAtom);
-      return (overwritten === EMPTY ? readDefault(get) : overwritten) as T;
+      return trackIfPromise(overwritten === EMPTY ? readDefault(get) : overwritten) as T;
     },
     (get, set, update: RecoilSetArg<T> | typeof RESET) => {
       const next = resolveSetArg(update, () => get(recoilAtom));

@@ -1,6 +1,6 @@
 {
   "name": "recoil-jotai-adapter",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Recoil API compatible adapter built on top of jotai. Swap `recoil` for this package without touching your source code.",
   "license": "MIT",
   "type": "module",

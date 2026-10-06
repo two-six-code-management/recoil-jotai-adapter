@@ -1,5 +1,5 @@
 import { atom as jotaiAtom } from 'jotai';
-import { isPromiseLike, registerRecoilValue } from './internal';
+import { isPromiseLike, registerRecoilValue, trackIfPromise } from './internal';
 import type { RecoilValue, RecoilValueReadOnly, UnwrapRecoilValues } from './types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -45,7 +45,9 @@ export function waitForAll(
 
   const allAtom = jotaiAtom((get) => {
     const values = entries.map(([, recoilValue]) => get(recoilValue) as unknown);
-    return values.some(isPromiseLike) ? Promise.all(values).then(toResult) : toResult(values);
+    return values.some(isPromiseLike)
+      ? trackIfPromise(Promise.all(values).then(toResult))
+      : toResult(values);
   });
 
   const recoilValue = registerRecoilValue(allAtom, `waitForAll(${cacheKey})`);

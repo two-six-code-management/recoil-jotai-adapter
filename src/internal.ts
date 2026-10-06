@@ -42,9 +42,45 @@ export const resolveSetArg = <T>(
       ? (update as (prev: T) => T | DefaultValue)(getCurrent())
       : (update as T | DefaultValue);
 
-type Settled = { status: 'fulfilled'; value: unknown } | { status: 'rejected'; reason: unknown };
+export type Settled =
+  | { status: 'fulfilled'; value: unknown }
+  | { status: 'rejected'; reason: unknown };
 
 const settledPromises = new WeakMap<PromiseLike<unknown>, Settled>();
+
+/** 解決済みの Promise ならその結果を返す（未解決・未追跡なら undefined） */
+export const getSettled = (promise: PromiseLike<unknown>): Settled | undefined =>
+  settledPromises.get(promise);
+
+const trackedPromises = new WeakMap<PromiseLike<unknown>, Promise<void>>();
+
+/** Promise の解決結果を記録し、後から同期的に参照できるようにする */
+export const trackPromise = (promise: PromiseLike<unknown>): Promise<void> => {
+  let tracking = trackedPromises.get(promise);
+  if (tracking === undefined) {
+    tracking = Promise.resolve(promise).then(
+      (value) => {
+        settledPromises.set(promise, { status: 'fulfilled', value });
+      },
+      (reason) => {
+        settledPromises.set(promise, { status: 'rejected', reason });
+      },
+    );
+    trackedPromises.set(promise, tracking);
+  }
+  return tracking;
+};
+
+/**
+ * atom / selector が返す値が Promise なら、生成した時点で解決結果の追跡を始める。
+ * Suspense で解決を待った後に、getLoadable などから同期的に解決済みの値を読めるようにするため。
+ */
+export const trackIfPromise = <V>(value: V): V => {
+  if (isPromiseLike(value)) {
+    void trackPromise(value);
+  }
+  return value;
+};
 
 /** 非同期の依存がまだ解決していないことを evaluate に伝えるためのシグナル */
 class PendingDependency {
@@ -56,13 +92,14 @@ class PendingDependency {
  * Recoil と同様に、非同期の依存は解決済みの値として返す（未解決なら解決を待って再評価する）。
  */
 export const createGetter =
-  (get: Getter): GetRecoilValue =>
+  (get: Getter, onRead?: (recoilValue: RecoilValue<unknown>) => void): GetRecoilValue =>
   <T>(recoilValue: RecoilValue<T>): T => {
+    onRead?.(recoilValue as RecoilValue<unknown>);
     const value: unknown = get(recoilValue);
     if (!isPromiseLike(value)) {
       return value as T;
     }
-    const settled = settledPromises.get(value);
+    const settled = getSettled(value);
     if (!settled) {
       throw new PendingDependency(value);
     }
@@ -76,17 +113,7 @@ const waitAndRetry = <T>(error: unknown, compute: () => T | Promise<T>): Promise
   if (!(error instanceof PendingDependency)) {
     throw error;
   }
-  const { promise } = error;
-  return Promise.resolve(promise)
-    .then(
-      (value) => {
-        settledPromises.set(promise, { status: 'fulfilled', value });
-      },
-      (reason) => {
-        settledPromises.set(promise, { status: 'rejected', reason });
-      },
-    )
-    .then(() => evaluate(compute));
+  return trackPromise(error.promise).then(() => evaluate(compute));
 };
 
 /** 非同期の依存が解決するまで待ってから compute を再評価する */

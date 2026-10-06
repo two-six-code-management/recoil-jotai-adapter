@@ -9,7 +9,9 @@ import {
   isRecoilValue,
   registerRecoilValue,
   resolveSetArg,
+  trackIfPromise,
 } from './internal';
+import { createRefreshMeta, registerRefreshMeta } from './refresh';
 import type {
   GetRecoilValue,
   RecoilSetArg,
@@ -39,23 +41,32 @@ export type ReadWriteSelectorOptions<T> = ReadOnlySelectorOptions<T> & {
 };
 
 const createRead =
-  <T>(selectorGet: SelectorGet<T>) =>
-  (get: Getter): T =>
-    evaluate(() => {
-      const getRecoilValue = createGetter(get);
-      const result = selectorGet({ get: getRecoilValue });
-      return isRecoilValue(result) ? getRecoilValue(result as RecoilValue<T>) : result;
-    }) as T;
+  <T>(selectorGet: SelectorGet<T>, refreshMeta: ReturnType<typeof createRefreshMeta>) =>
+  (get: Getter): T => {
+    get(refreshMeta.counter);
+    return trackIfPromise(
+      evaluate(() => {
+        const getRecoilValue = createGetter(get, (dependency) =>
+          refreshMeta.dependencies.add(dependency),
+        );
+        const result = selectorGet({ get: getRecoilValue });
+        return isRecoilValue(result) ? getRecoilValue(result as RecoilValue<T>) : result;
+      }),
+    ) as T;
+  };
 
 export function selector<T>(options: ReadWriteSelectorOptions<T>): RecoilState<T>;
 export function selector<T>(options: ReadOnlySelectorOptions<T>): RecoilValueReadOnly<T>;
 export function selector<T>(
   options: ReadOnlySelectorOptions<T> | ReadWriteSelectorOptions<T>,
 ): RecoilValue<T> {
-  const read = createRead(options.get);
+  const refreshMeta = createRefreshMeta();
+  const read = createRead(options.get, refreshMeta);
 
   if (!('set' in options)) {
-    return registerRecoilValue(jotaiAtom(read), options.key) as RecoilValueReadOnly<T>;
+    const readOnlySelector = jotaiAtom(read);
+    registerRefreshMeta(readOnlySelector, refreshMeta);
+    return registerRecoilValue(readOnlySelector, options.key) as RecoilValueReadOnly<T>;
   }
 
   const selectorSet = options.set;
@@ -67,5 +78,6 @@ export function selector<T>(
     );
   });
 
+  registerRefreshMeta(writableSelector, refreshMeta);
   return registerRecoilValue(writableSelector, options.key) as RecoilState<T>;
 }
