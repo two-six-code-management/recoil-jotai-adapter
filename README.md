@@ -14,6 +14,8 @@ EOL を迎えた [Recoil](https://recoiljs.org/) の API を、[jotai](https://j
 
 ## 導入方法
 
+事前チェック・動作確認・CI 環境の要件・切り戻し・jotai への移行まで含めた詳しい手順は、[組み込みガイド](docs/integration.md) を参照してください。
+
 ### 1. パッケージを `recoil` という名前でインストールする
 
 npm レジストリ（社内レジストリ / GitHub Packages 含む）に公開した場合:
