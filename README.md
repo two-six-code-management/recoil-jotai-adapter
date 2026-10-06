@@ -28,7 +28,7 @@ npm レジストリ（社内レジストリ / GitHub Packages 含む）に公開
 }
 ```
 
-GitHub リポジトリ（private）から直接インストールする場合（`prepare` でビルドされます）:
+GitHub リポジトリから直接インストールする場合（`prepare` でビルドされます）:
 
 ```jsonc
 {
@@ -38,8 +38,6 @@ GitHub リポジトリ（private）から直接インストールする場合（
   }
 }
 ```
-
-private リポジトリのため、`npm i` を実行する環境（開発端末・CI・ビルドサーバ）に GitHub への読み取り権限が必要です。
 
 `npm i` 後、`node_modules/recoil` の実体がこのアダプタになります。TypeScript の型も Vite のバンドルも自動で切り替わるため、`tsconfig.json` や `vite.config.ts` の変更は不要です。
 
