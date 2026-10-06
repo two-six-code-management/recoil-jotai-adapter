@@ -2,13 +2,17 @@ import { describe, expectTypeOf, it } from 'vitest';
 import {
   atom,
   atomFamily,
+  CallbackInterface,
   DefaultValue,
+  Loadable,
   RecoilState,
   RecoilValue,
   RecoilValueReadOnly,
   selector,
   selectorFamily,
   SetterOrUpdater,
+  useRecoilCallback,
+  useRecoilRefresher_UNSTABLE,
   useRecoilState,
   useRecoilValue,
   useSetRecoilState,
@@ -102,5 +106,59 @@ describe('型の互換性', () => {
     expectTypeOf(useRecoilValue(waitForAll([['a']].map((ids) => family(ids))))).toEqualTypeOf<
       { ok: boolean }[]
     >();
+  });
+});
+
+describe('useRecoilCallback の型', () => {
+  it('コールバックの引数と戻り値の型を保持する', () => {
+    const callback = useRecoilCallback(() => async (id: string, page: number) => ({ id, page }));
+
+    expectTypeOf(callback).toEqualTypeOf<
+      (id: string, page: number) => Promise<{ id: string; page: number }>
+    >();
+  });
+
+  it('getLoadable の state で contents の型が絞り込まれる', () => {
+    const countState = atom<number>({ key: 'type-callback-count', default: 0 });
+
+    useRecoilCallback(({ snapshot }) => () => {
+      const loadable = snapshot.getLoadable(countState);
+      expectTypeOf(loadable).toEqualTypeOf<Loadable<number>>();
+      expectTypeOf(loadable.getValue()).toEqualTypeOf<number>();
+      if (loadable.state === 'hasValue') {
+        expectTypeOf(loadable.contents).toEqualTypeOf<number>();
+      }
+      if (loadable.state === 'loading') {
+        expectTypeOf(loadable.contents).toEqualTypeOf<Promise<number>>();
+      }
+    });
+  });
+
+  it('getPromise に型引数を明示できる', () => {
+    const urlSelector = selector({ key: 'type-callback-url', get: async () => 'url' });
+
+    useRecoilCallback(({ snapshot }) => async () => {
+      expectTypeOf(await snapshot.getPromise<string>(urlSelector)).toEqualTypeOf<string>();
+    });
+  });
+
+  it('set / reset / refresh は書き込み可能・読み取り専用の値を正しく受け付ける', () => {
+    const countState = atom<number>({ key: 'type-callback-set', default: 0 });
+    const readOnly = selector({ key: 'type-callback-readonly', get: () => 1 });
+
+    useRecoilCallback(({ set, reset, refresh }: CallbackInterface) => () => {
+      set(countState, 1);
+      set(countState, (prev) => prev + 1);
+      reset(countState);
+      refresh(readOnly);
+      // @ts-expect-error 読み取り専用 selector には set できない
+      set(readOnly, 1);
+    });
+    expectTypeOf(useRecoilRefresher_UNSTABLE(readOnly)).toEqualTypeOf<() => void>();
+  });
+
+  it('非対応の gotoSnapshot は型エラーになる', () => {
+    // @ts-expect-error gotoSnapshot は提供しない
+    useRecoilCallback(({ gotoSnapshot }) => () => gotoSnapshot);
   });
 });
