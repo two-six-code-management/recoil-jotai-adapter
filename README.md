@@ -25,7 +25,7 @@ npm レジストリ（社内レジストリ / GitHub Packages 含む）に公開
 {
   "dependencies": {
     "jotai": "^2.20.3",
-    "recoil": "npm:recoil-jotai-adapter@^0.1.0"
+    "recoil": "npm:recoil-jotai-adapter@^0.2.0"
   }
 }
 ```
@@ -36,7 +36,7 @@ GitHub リポジトリから直接インストールする場合（`prepare` で
 {
   "dependencies": {
     "jotai": "^2.20.3",
-    "recoil": "github:two-six-code-management/recoil-jotai-adapter#v0.1.0"
+    "recoil": "github:two-six-code-management/recoil-jotai-adapter#v0.2.0"
   }
 }
 ```
@@ -65,13 +65,17 @@ import { atom, useRecoilState } from 'recoil-jotai-adapter';
 | `waitForAll` | 配列・オブジェクトの両形式に対応 |
 | `DefaultValue` | reset 時に selector の `set` へ渡される |
 | `useRecoilState` / `useRecoilValue` / `useSetRecoilState` / `useResetRecoilState` | |
+| `useRecoilCallback` | `snapshot`（`getLoadable` / `getPromise` / `retain`）、`set`、`reset`、`refresh`、`transact_UNSTABLE` に対応 |
+| `useRecoilRefresher_UNSTABLE` | 依存している上流の selector も再評価する（Recoil と同じ） |
+| `Loadable` | `state` / `contents` と `getValue` / `toPromise` / `valueMaybe` / `valueOrThrow` / `errorMaybe` / `errorOrThrow` / `promiseMaybe` / `promiseOrThrow` |
 | 型: `RecoilState` / `RecoilValue` / `RecoilValueReadOnly` / `SetterOrUpdater` / `SerializableParam` など | |
 
 ## 非対応 API
 
 以下は未実装です。利用している場合は import 時に型エラー（存在しない export）になるため、切替前に検出できます。
 
-- `useRecoilCallback`、`useRecoilValueLoadable` / `useRecoilStateLoadable`、`Loadable`
+- `useRecoilValueLoadable` / `useRecoilStateLoadable`、`RecoilLoadable`
+- `useRecoilCallback` の `gotoSnapshot`、Snapshot の `map` / `asyncMap` / `getID` / `getInfo_UNSTABLE` / `getNodes_UNSTABLE` など
 - Snapshot 系（`useRecoilSnapshot`、`useGotoRecoilSnapshot`、`snapshot_UNSTABLE` など）
 - atom の `effects`（オプションの型に存在しないため指定すると型エラー）
 - `waitForAny` / `waitForNone` / `noWait` / `constSelector` / `errorSelector`
@@ -85,6 +89,8 @@ import { atom, useRecoilState } from 'recoil-jotai-adapter';
 | 重複した `key` | 同じ key の atom を警告して同一扱い | `key` はデバッグラベルとしてのみ使い、別々の atom になる |
 | RecoilRoot 外での利用 | 例外 | jotai のデフォルト store を使って動作する |
 | selector の `get` の `getCallback` | 利用可能 | 非対応 |
+| `useRecoilCallback` の `snapshot` | コールバックを呼んだ時点の状態で固定される | 固定されず、読むたびに最新の状態を返す |
+| `snapshot.retain()` | 呼ばないとコールバック終了後に未解決の非同期評価が打ち切られる | 何もしない（打ち切りも起きない） |
 
 ## jotai への段階的移行
 

@@ -18,17 +18,17 @@ Recoil を使っている既存の React プロジェクトに recoil-jotai-adap
 
 | 項目 | 条件 |
 | --- | --- |
-| React | 17 以上 |
+| React | 17 以上（17.0.2 / 18.3.1 で動作確認済み） |
 | jotai | 2 系（`^2.12.0` 以上）。jotai 3 系は Node.js 22.12 以上と TypeScript 5.5 以上が必要なため対象外 |
-| TypeScript | 5 系（5.5.4 で動作確認済み） |
-| 置き換え元の Recoil | 0.7 系 |
+| TypeScript | 4.6.4 / 5.5.4 で動作確認済み。4.8 未満では jotai に同梱の旧 TypeScript 向け型定義が使われる |
+| 置き換え元の Recoil | 0.4 系 / 0.7 系で動作確認済み |
 
 ## 2. 非対応 API の事前チェック
 
 アダプタが対応していない API を使っていると、切替後に型エラーやビルドエラーになります。切替前にプロジェクトのルートで次のコマンドを実行し、**何も出力されないこと**を確認してください。
 
 ```sh
-grep -rnE "\b(useRecoilCallback|useRecoilValueLoadable|useRecoilStateLoadable|useRecoilSnapshot|useGotoRecoilSnapshot|useRecoilTransaction_UNSTABLE|snapshot_UNSTABLE|waitForAny|waitForNone|waitForAllSettled|noWait|constSelector|errorSelector|RecoilEnv|useRecoilBridgeAcrossReactRoots_UNSTABLE|RecoilLoadable|effects_UNSTABLE)\b|\beffects\s*:|cachePolicy_UNSTABLE|getCallback" \
+grep -rnE "\b(useRecoilValueLoadable|useRecoilStateLoadable|useRecoilSnapshot|useGotoRecoilSnapshot|useRecoilTransaction_UNSTABLE|snapshot_UNSTABLE|waitForAny|waitForNone|waitForAllSettled|noWait|constSelector|errorSelector|RecoilEnv|useRecoilBridgeAcrossReactRoots_UNSTABLE|RecoilLoadable|effects_UNSTABLE|gotoSnapshot|getInfo_UNSTABLE|getNodes_UNSTABLE)\b|\beffects\s*:|cachePolicy_UNSTABLE|getCallback" \
   --include='*.ts' --include='*.tsx' src
 ```
 
@@ -38,9 +38,11 @@ grep -rnE "\b(useRecoilCallback|useRecoilValueLoadable|useRecoilStateLoadable|us
 
 ### 対応している API
 
-`RecoilRoot` / `atom` / `selector` / `atomFamily` / `selectorFamily` / `waitForAll` / `DefaultValue` / `useRecoilState` / `useRecoilValue` / `useSetRecoilState` / `useResetRecoilState` / `isRecoilValue`
+`RecoilRoot` / `atom` / `selector` / `atomFamily` / `selectorFamily` / `waitForAll` / `DefaultValue` / `useRecoilState` / `useRecoilValue` / `useSetRecoilState` / `useResetRecoilState` / `useRecoilCallback` / `useRecoilRefresher_UNSTABLE` / `isRecoilValue`
 
-型: `RecoilState` / `RecoilValue` / `RecoilValueReadOnly` / `SetterOrUpdater` / `Resetter` / `GetRecoilValue` / `SetRecoilState` / `ResetRecoilState` / `SerializableParam` / `MutableSnapshot`
+`useRecoilCallback` に渡される機能のうち `snapshot`（`getLoadable` / `getPromise` / `retain`）、`set`、`reset`、`refresh`、`transact_UNSTABLE` に対応しています。`gotoSnapshot` は非対応です。
+
+型: `RecoilState` / `RecoilValue` / `RecoilValueReadOnly` / `SetterOrUpdater` / `Resetter` / `GetRecoilValue` / `SetRecoilState` / `ResetRecoilState` / `SerializableParam` / `MutableSnapshot` / `Loadable` / `Snapshot` / `CallbackInterface`
 
 ## 3. 依存の差し替え
 
@@ -49,7 +51,7 @@ grep -rnE "\b(useRecoilCallback|useRecoilValueLoadable|useRecoilStateLoadable|us
 ### 方法 A: GitHub のタグを指定する（推奨）
 
 ```sh
-npm i "recoil@github:two-six-code-management/recoil-jotai-adapter#v0.1.0" jotai@^2.20.3
+npm i "recoil@github:two-six-code-management/recoil-jotai-adapter#v0.2.0" jotai@^2.20.3
 ```
 
 `package.json` は次のようになります。
@@ -58,12 +60,12 @@ npm i "recoil@github:two-six-code-management/recoil-jotai-adapter#v0.1.0" jotai@
 {
   "dependencies": {
     "jotai": "^2.20.3",
-    "recoil": "github:two-six-code-management/recoil-jotai-adapter#v0.1.0"
+    "recoil": "github:two-six-code-management/recoil-jotai-adapter#v0.2.0"
   }
 }
 ```
 
-- タグ（`#v0.1.0`）は必ず指定してください。省略するとインストールのたびに `main` の最新が入り、ビルド結果が変わる恐れがあります。
+- タグ（`#v0.2.0`）は必ず指定してください。省略するとインストールのたびに `main` の最新が入り、ビルド結果が変わる恐れがあります。
 - インストール時に `prepare` スクリプトでビルドされます。そのため `npm install` / `npm ci` を実行する環境にはネットワーク接続が必要です。
 
 ### 方法 B: npm レジストリから入れる
@@ -74,7 +76,7 @@ npm レジストリ（社内レジストリや GitHub Packages を含む）に�
 {
   "dependencies": {
     "jotai": "^2.20.3",
-    "recoil": "npm:recoil-jotai-adapter@^0.1.0"
+    "recoil": "npm:recoil-jotai-adapter@^0.2.0"
   }
 }
 ```
@@ -84,7 +86,7 @@ npm レジストリ（社内レジストリや GitHub Packages を含む）に�
 通常の名前でインストールし、import 文を書き換えることもできます。
 
 ```sh
-npm i "recoil-jotai-adapter@github:two-six-code-management/recoil-jotai-adapter#v0.1.0" jotai@^2.20.3
+npm i "recoil-jotai-adapter@github:two-six-code-management/recoil-jotai-adapter#v0.2.0" jotai@^2.20.3
 npm uninstall recoil
 ```
 
@@ -125,10 +127,13 @@ npm ls jotai
 - `useResetRecoilState` で状態をリセットしている画面
 - 非同期 selector と `<Suspense>` を使っている画面
 - 同じ `key` の atom を複数のファイルで定義している箇所（下記参照）
+- `useRecoilCallback` の中で `set` した後に、同じ `snapshot` を読み直している箇所（下記参照）
 
 ### テストコードについて
 
 `<RecoilRoot>` で囲んで `renderHook` / `render` しているテストは、そのまま動きます。`initializeState` の `set` / `reset` にも対応しています。
+
+アダプタは ESM と CommonJS の両方を同梱しているため、Vitest だけでなく Jest（ts-jest）でも追加設定なしで動きます。
 
 ## 5. CI / デプロイ環境
 
@@ -164,7 +169,7 @@ node -p "require('recoil/package.json').name"
 
 ### 切り戻し
 
-切替の PR（またはコミット）を revert して再ビルド・再デプロイするだけです。ソースコードは変えていないので、Recoil 0.7 系でそのまま動きます。
+切替の PR（またはコミット）を revert して再ビルド・再デプロイするだけです。ソースコードは変えていないので、元の Recoil でそのまま動きます。
 
 ```sh
 git revert <切替コミット>
@@ -203,6 +208,8 @@ const total = useAtomValue(totalSelector);
 | `useRecoilValue` | `useAtomValue` |
 | `useSetRecoilState` | `useSetAtom` |
 | `useResetRecoilState` | `jotai/utils` の `atomWithReset` + `useResetAtom` |
+| `useRecoilCallback` | `jotai/utils` の `useAtomCallback`、または `useStore()` で取得した store の `get` / `set` |
+| `useRecoilRefresher_UNSTABLE` | `jotai/utils` の `atomWithRefresh` |
 | `waitForAll([a, b])` | `atom((get) => [get(a), get(b)])`（非同期なら `Promise.all`） |
 
 ### 移行時の注意
@@ -221,6 +228,8 @@ const total = useAtomValue(totalSelector);
 | 重複した `key` | 警告を出して同じ atom として扱う | 別々の atom になる | 同じ key を別ファイルで定義し、状態の共有を期待しているコードは動かなくなる。定義を 1 か所にまとめる |
 | `<RecoilRoot>` の外での利用 | 例外 | jotai の既定 store で動く | 囲み忘れがエラーにならない |
 | selector の `getCallback` | 利用できる | 非対応 | 事前チェックで検出される |
+| `useRecoilCallback` の `snapshot` | コールバックを呼んだ時点の状態で固定される | 固定されず、読むたびに最新の状態を返す | `set` の後に同じ `snapshot` を読み直すと、Recoil では変更前、アダプタでは変更後の値になる。`set` する前に読んだ値を変数に保持しておけば違いは出ない |
+| `snapshot.retain()` | 呼ばないと、コールバック終了後に未解決の非同期評価が打ち切られる | 何もしない（打ち切りも起きない） | 呼んだままでも問題ない |
 
 ## トラブルシューティング
 
