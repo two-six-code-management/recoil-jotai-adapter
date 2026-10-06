@@ -28,16 +28,18 @@ npm レジストリ（社内レジストリ / GitHub Packages 含む）に公開
 }
 ```
 
-GitHub リポジトリから直接インストールする場合（`prepare` でビルドされます）:
+GitHub リポジトリ（private）から直接インストールする場合（`prepare` でビルドされます）:
 
 ```jsonc
 {
   "dependencies": {
     "jotai": "^2.20.3",
-    "recoil": "github:<org>/recoil-jotai-adapter#v0.1.0"
+    "recoil": "github:two-six-code-management/recoil-jotai-adapter#v0.1.0"
   }
 }
 ```
+
+private リポジトリのため、`npm i` を実行する環境（開発端末・CI・ビルドサーバ）に GitHub への読み取り権限が必要です。
 
 `npm i` 後、`node_modules/recoil` の実体がこのアダプタになります。TypeScript の型も Vite のバンドルも自動で切り替わるため、`tsconfig.json` や `vite.config.ts` の変更は不要です。
 
